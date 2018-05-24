@@ -5,6 +5,27 @@ body {
     background-image: url('./images/main_bg.png');
 }
 
+.lang {
+    display: block;
+    position: absolute;
+    right: 0;
+}
+
+.lang p {
+    margin: 10px 10px 0 0;
+    cursor: default;
+    color: #231f20;
+}
+
+.lang a.active-lang {
+    text-decoration: underline;
+    cursor: default;
+}
+
+.lang p > a {
+    cursor: pointer;
+}
+
 .left-side {
     display: block;
     position: fixed;
