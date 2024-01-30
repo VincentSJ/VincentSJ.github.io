@@ -1,25 +1,250 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset='utf-8'>
-    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>GeoAR.js demo</title>
-    <script src='/src/aframe.js'></script>
-    <script src='/src/aframe-ar.js'></script>
-    <script src='/src/aframe-extras.js'></script>
-    <script>
-        THREEx.ArToolkitContext.baseURL = 'https://raw.githack.com/jeromeetienne/ar.js/master/three.js/'
-    </script>
+    <title>Sand sim</title>
+    <meta charset="utf-8">
+    <style>
+        * {
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            overflow: hidden;
+        }
+        #canvs {
+            top: 0;
+            position: absolute;
+        }
+
+        #stats {
+            display: block;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            pointer-events: none;
+            text-align: right;
+            z-index: 10;
+        }
+
+        #desc {
+            display: block;
+            position: absolute;
+            top: 15px;
+            left: 10px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
 </head>
 
-<body style='margin: 0; overflow: hidden;'>
-    <a-scene
-        vr-mode-ui="enabled: false"
-		embedded
-        arjs='sourceType: webcam; sourceWidth:1280; sourceHeight:960; displayWidth: 1280; displayHeight: 960; debugUIEnabled: false;'>
+<body>
+    <p id="stats">0</p>
+    <p id="desc">v0.9</br>Sand simulation</br>Based on simple arrays</br>Click to spawn sand block</br>Ctrl + click to draw ground</br>Shift + click to remove block</p>
+    <canvas id="canvs"></canvas>
+    <script>
+        // Init some states
+        let stat = document.getElementById("stats")
 
-        <a-entity gltf-model="/assets/Suzanne.gltf" rotation="0 0 0" scale="1 1 1" gps-entity-place="longitude: 37.665931; latitude: 55.773057;"/>
-        
-        <a-camera gps-camera rotation-reader></a-camera>
-	</a-scene>
+        const pixel_size = 10;
+
+        const grid_size_x = Math.round(window.innerHeight/pixel_size);
+        const grid_size_y = Math.round(window.innerWidth/pixel_size);
+
+        const cnv = document.getElementById('canvs');
+            cnv.width = grid_size_y * pixel_size;
+            cnv.height = grid_size_x * pixel_size;
+        const ctx = cnv.getContext('2d');
+
+
+
+        function gridConstructor(grid_size_x, grid_size_y) {
+            let grid = new Array(grid_size_x);
+
+            for (let x = 0; x < grid_size_x; x++) {
+                grid[x] = new Array(grid_size_y);
+            }
+
+            return grid;
+        }
+
+        let currentGrid = gridConstructor(grid_size_x, grid_size_y);
+
+        function gridSolver(grid) {
+            let nextGrid = gridConstructor(grid_size_x, grid_size_y)
+
+            for (let x = 0; x < grid_size_x; x++) {
+                 
+                // 50% chance to read Y axis from left-to-right or vice versa
+                if (Math.random() < 0.5) {
+                    for (let y = 0; y < grid_size_y; y++) {
+                        solveYaxisIteration(x,y)
+                    }
+                } else {
+                    for (let y = grid_size_y - 1; y > 0; y--) {
+                        solveYaxisIteration(x,y)
+                    }
+                }
+                
+                function solveYaxisIteration(x,y){
+                    // If there is a particle and it can be moved (not -1)
+                    if (grid[x][y] && grid[x][y] != -1) {
+
+                        // if we have free space right UNDER the current particle
+                        if (x + 1 < grid_size_x && !grid[x + 1][y] && !nextGrid[x + 1][y]) { 
+                            if (!nextGrid[x + 1][y]) {
+                                nextGrid[x + 1][y] = currentGrid[x][y]
+                            } else {
+                                nextGrid[x][y] = currentGrid[x][y]
+                            }
+                                
+
+                        // Else check free space from left and right sides
+                        } else if (x + 1 < grid_size_x && (y - 1 >= 0 && y + 1 < grid_size_y)) {  
+                            let left = !currentGrid[x + 1][y - 1] ? 1 : 0;
+                            let right = !currentGrid[x + 1][y + 1] ? 1 : 0;
+
+                            // If have free space from left and right - choose random direction
+                            if (left && right) {
+                                if (Math.random() < 0.5) {
+                                    if (!nextGrid[x + 1][y - 1]) {
+                                        nextGrid[x + 1][y - 1] = currentGrid[x][y]
+                                    } else {
+                                        nextGrid[x][y] = currentGrid[x][y]
+                                    }
+                                } else {
+                                    if (!nextGrid[x + 1][y + 1]) {
+                                        nextGrid[x + 1][y + 1] = currentGrid[x][y]
+                                    } else {
+                                        nextGrid[x][y] = currentGrid[x][y]
+                                    }
+                                }
+
+                            // Only right free
+                            } else if (right) {
+                                if (!nextGrid[x + 1][y + 1]) {
+                                    nextGrid[x + 1][y + 1] = currentGrid[x][y]
+                                } else {
+                                    nextGrid[x][y] = currentGrid[x][y]
+                                }
+
+                            // Only left free
+                            } else if (left) {
+                                if (!nextGrid[x + 1][y - 1]) {
+                                    nextGrid[x + 1][y - 1] = currentGrid[x][y]
+                                } else {
+                                    nextGrid[x][y] = currentGrid[x][y]
+                                }
+
+                            // Particle builds on top
+                            } else {
+                                nextGrid[x][y] = currentGrid[x][y]
+                                    
+                            }
+                        // No free space, particle should stay at current position
+                        } else {
+                            nextGrid[x][y] = currentGrid[x][y]
+                        }
+                    } else if (grid[x][y] && grid[x][y] == -1){
+                        nextGrid[x][y] = currentGrid[x][y]
+                    }
+                }
+            }
+
+            return nextGrid
+        }
+
+        let clicked = false;
+
+        cnv.addEventListener('mousedown', data => {
+            clicked = true
+        })
+        cnv.addEventListener('mouseup', data => {
+            clicked = false
+        })
+
+        // Create new particle at mouse pointer X/Y coordinates when moving
+        cnv.addEventListener('mousemove', data => {
+            if (data.target != cnv || !clicked) {
+                return; // If mouse not on canvas
+            }
+
+            let x = Math.round(data.layerY / pixel_size);
+            let y = Math.round(data.layerX / pixel_size);
+
+            // draw unbreakable blocks
+            if (data.ctrlKey) {
+                currentGrid[x][y] = -1;
+                return
+            }
+
+            // remove any block
+            if (data.shiftKey) {
+                currentGrid[x][y] = 0;
+                return
+            }
+
+            if (currentGrid[x][y] != -1) {
+                currentGrid[Math.round(data.layerY / pixel_size)][Math.round(data.layerX / pixel_size)] = Math.floor(Math.random() * 3 + 1);
+            }
+        })
+
+        function draw() {
+            ctx.fillStyle = "white"
+            ctx.fillRect(0, 0, cnv.width, cnv.height)
+
+            for (let x = 0; x < grid_size_x; x++) {
+                for (let y = 0; y < grid_size_y; y++) {
+
+                    // Check particle's color (1/2/3)
+                    if (currentGrid[x][y]) {
+                        let color = null
+                        switch (currentGrid[x][y]) {
+                            case 1:
+                                color = "rgb(228,188,50)"
+                                break;
+                            case 2:
+                                color = "rgb(210,173,48)"
+                                break;
+                            case 3:
+                                color = "rgb(223,178,27)"
+                                break;
+                            case -1:
+                                color = "black"
+                                break;
+                        
+                            default:
+                                color = "red" // Just in case
+                                break;
+                        }
+                        ctx.fillStyle = color;
+                        ctx.fillRect(y * pixel_size, x * pixel_size, pixel_size, pixel_size);
+                    }
+                }
+            }
+        }
+
+        // How fast we want to calculate and draw canvas
+        setInterval(() => {
+            // currentGrid[0][20] = Math.floor(Math.random() * 3 + 1);
+            let startDate = performance.now()
+
+            currentGrid = gridSolver(currentGrid); // One step calculation
+            let solve = performance.now() - startDate
+
+            let startDraw = performance.now()
+            draw() // Draw whole canvas
+            let drawed = performance.now() - startDraw
+
+            let whole = performance.now() - startDate
+            
+            // Show some perf stats
+            stat.innerHTML = `Grid size: ${grid_size_x - 1}x${grid_size_y - 1}</br>Solving physic: ${Math.round(solve)} ms
+            </br>Draw canvas: ${Math.round(drawed)} ms
+            </br>Frame: ${Math.round(whole)} ms`
+        }, 0)
+    </script>
 </body>
+
+</html>
