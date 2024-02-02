@@ -40,12 +40,15 @@
 </head>
 
 <body>
-    <p id="stats">0</p>
-    <p id="desc">v0.9</br>Sand simulation</br>Based on simple arrays</br>Click + mouse move to spawn sand block</br>Ctrl + mouse move to draw ground</br>Shift + mouse move to remove block</p>
+    <p id="stats"></p>
+    <p id="desc">v 1.0</br>Sand simulation</br>Based on simple arrays</br>Click to spawn sand block</br>Ctrl + click to draw ground</br>Shift + click to remove block</p>
     <canvas id="canvs"></canvas>
     <script>
         // Init some states
         let stat = document.getElementById("stats")
+
+        const spawnRate = 25; // in ms
+        const solveRate = 0; // in ms
 
         const pixel_size = 10;
 
@@ -82,7 +85,7 @@
                         solveYaxisIteration(x,y)
                     }
                 } else {
-                    for (let y = grid_size_y - 1; y > 0; y--) {
+                    for (let y = grid_size_y - 1; y >= 0; y--) {
                         solveYaxisIteration(x,y)
                     }
                 }
@@ -101,9 +104,12 @@
                                 
 
                         // Else check free space from left and right sides
-                        } else if (x + 1 < grid_size_x && (y - 1 >= 0 && y + 1 < grid_size_y)) {  
-                            let left = !currentGrid[x + 1][y - 1] ? 1 : 0;
-                            let right = !currentGrid[x + 1][y + 1] ? 1 : 0;
+                        } else if (x + 1 < grid_size_x && (y >= 0 || y + 1 < grid_size_y)) {  
+
+                            let left = null;
+                            if (y - 1 >= 0) left = !currentGrid[x + 1][y - 1] ? 1 : 0;
+                            let right = null
+                            if (y + 1 < grid_size_y) right = !currentGrid[x + 1][y + 1] ? 1 : 0;
 
                             // If have free space from left and right - choose random direction
                             if (left && right) {
@@ -155,40 +161,54 @@
             return nextGrid
         }
 
-        let clicked = false;
-
         cnv.addEventListener('mousedown', data => {
-            clicked = true
+            mouseDataState.clicked = true
         })
         cnv.addEventListener('mouseup', data => {
-            clicked = false
+            mouseDataState.clicked = false
         })
 
-        // Create new particle at mouse pointer X/Y coordinates when moving
         cnv.addEventListener('mousemove', data => {
-            if (data.target != cnv || !clicked) {
-                return; // If mouse not on canvas
+            mouseDataState.x = Math.round(data.layerY / pixel_size);
+            mouseDataState.y = Math.round(data.layerX / pixel_size);
+            mouseDataState.ctrlKey = data.ctrlKey;
+            mouseDataState.shiftKey = data.shiftKey;
+            mouseDataState.target = data.target;
+        })
+
+        let mouseDataState = {
+            x: 0,
+            y: 0,
+            clicked: false,
+            ctrlKey: false,
+            shiftKey: false,
+            target: null
+        }
+
+        function spawnParticle() {
+            if (mouseDataState.target != cnv || !mouseDataState.clicked) {
+                return
             }
 
-            let x = Math.round(data.layerY / pixel_size);
-            let y = Math.round(data.layerX / pixel_size);
-
-            // draw unbreakable blocks
-            if (data.ctrlKey) {
-                currentGrid[x][y] = -1;
+            if (mouseDataState.ctrlKey) {
+                currentGrid[mouseDataState.x][mouseDataState.y] = -1;
                 return
             }
 
             // remove any block
-            if (data.shiftKey) {
-                currentGrid[x][y] = 0;
+            if (mouseDataState.shiftKey) {
+                currentGrid[mouseDataState.x][mouseDataState.y] = 0;
                 return
             }
 
-            if (currentGrid[x][y] != -1) {
-                currentGrid[Math.round(data.layerY / pixel_size)][Math.round(data.layerX / pixel_size)] = Math.floor(Math.random() * 3 + 1);
+            if (currentGrid[mouseDataState.x][mouseDataState.y] != -1) {
+                currentGrid[mouseDataState.x][mouseDataState.y] = Math.floor(Math.random() * 3 + 1);
             }
-        })
+        }
+
+        setInterval(()=>{
+            if (mouseDataState.clicked) spawnParticle()
+        }, spawnRate)
 
         function draw() {
             ctx.fillStyle = "white"
@@ -242,8 +262,10 @@
             // Show some perf stats
             stat.innerHTML = `Grid size: ${grid_size_x - 1}x${grid_size_y - 1}</br>Solving physic: ${Math.round(solve)} ms
             </br>Draw canvas: ${Math.round(drawed)} ms
-            </br>Frame: ${Math.round(whole)} ms`
-        }, 0)
+            </br>Frame: ${Math.round(whole)} ms
+            </br></br>Spawn rate: 1 block in ${spawnRate} ms
+            </br>Solve rate: ${solveRate} ms`
+        }, solveRate)
     </script>
 </body>
 
