@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Sand sim</title>
+        <meta charset="utf-8" />
+        <style>
+            * {
+                padding: 0;
+                margin: 0;
+            }
+
+            body {
+                overflow: hidden;
+            }
+
+            #canvs {
+                top: 0;
+                position: absolute;
+                border: 1px solid grey;
+            }
+
+            #stats {
+                display: block;
+                position: absolute;
+                top: 15px;
+                right: 20px;
+                pointer-events: none;
+                text-align: right;
+                z-index: 10;
+            }
+
+            #desc {
+                display: block;
+                position: absolute;
+                top: 15px;
+                left: 10px;
+                pointer-events: none;
+                z-index: 10;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id="canvs"></canvas>
+        <script src="./sand_sim_phys.js"></script>
+    </body>
+</html>
